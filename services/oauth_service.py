@@ -80,19 +80,19 @@ import secrets
 from models.schema import Program, Student, User
 from services.auth_service import ensure_role, hash_password, record_login, reset_failed_attempts, utc_now
 
-STUDENT_EMAIL_RE = re.compile(r"^(\d{12})(?:\.gvp)?@gujaratvidyapith\.org$", re.IGNORECASE)
+STUDENT_EMAIL_RE = re.compile(r"^(\d{9}|\d{12})(?:\.gvp)?@gujaratvidyapith\.org$", re.IGNORECASE)
 
 
 def parse_student_enrollment_from_email(email: str) -> str | None:
-    """Extract a 12-digit enrollment number from a student institutional email if present."""
+    """Extract a 9 or 12 digit enrollment number from a student institutional email if present."""
     if not email:
         return None
     m = STUDENT_EMAIL_RE.match(email.strip())
     if m:
         return m.group(1)
-    # Also check if prefix before @ or .gvp is exactly 12 digits
+    # Also check if prefix before @ or .gvp is exactly 9 or 12 digits
     prefix = email.strip().split("@")[0].split(".gvp")[0]
-    if re.match(r"^\d{12}$", prefix):
+    if re.match(r"^(\d{9}|\d{12})$", prefix):
         return prefix
     return None
 

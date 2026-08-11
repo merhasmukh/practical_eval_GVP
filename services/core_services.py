@@ -30,8 +30,8 @@ from models.schema import (
 )
 
 GITHUB_RE = re.compile(r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$")
-GVP_STUDENT_EMAIL_RE = re.compile(r"^(\d{12})\.gvp@gujaratvidyapith\.org$", re.IGNORECASE)
-ENROLLMENT_NO_RE = re.compile(r"^\d{12}$")
+GVP_STUDENT_EMAIL_RE = re.compile(r"^(\d{9}|\d{12})\.gvp@gujaratvidyapith\.org$", re.IGNORECASE)
+ENROLLMENT_NO_RE = re.compile(r"^(\d{9}|\d{12})$")
 VALID_GRADES = {"A", "B", "C", "D", "E", "F"}
 FACULTY_ROLE = "Faculty"
 
@@ -251,7 +251,7 @@ def validate_bulk_user_import(rows: pd.DataFrame, user_type: str, db: Session) -
             if not enrollment:
                 errors.append("Missing Enrollment No. (required)")
             elif not ENROLLMENT_NO_RE.match(enrollment):
-                errors.append(f"Enrollment No. '{enrollment}' must be exactly 12 digits (e.g. 250160450310)")
+                errors.append(f"Enrollment No. '{enrollment}' must be 9 or 12 digits (e.g. 210160450 or 250160450310)")
             elif enrollment in seen_enrollment or db.scalar(select(User).where(User.username == enrollment)) is not None:
                 record.update({"status": "Warning", "reason": "Duplicate Enrollment No", "ready": False, "duplicate": True})
             else:
@@ -265,7 +265,7 @@ def validate_bulk_user_import(rows: pd.DataFrame, user_type: str, db: Session) -
             else:
                 email_match = GVP_STUDENT_EMAIL_RE.match(email)
                 if not email_match:
-                    errors.append(f"Student email '{email}' must follow format '<12-digit-enrollment>.gvp@gujaratvidyapith.org'")
+                    errors.append(f"Student email '{email}' must follow format '<9-or-12-digit-enrollment>.gvp@gujaratvidyapith.org'")
                 elif enrollment and ENROLLMENT_NO_RE.match(enrollment) and email_match.group(1) != enrollment:
                     errors.append(f"Email enrollment number ({email_match.group(1)}) does not match Enrollment No. ({enrollment})")
                 elif email in seen_email or db.scalar(select(User).where(User.email == email)) is not None:
@@ -849,6 +849,9 @@ def import_practicals_from_dataframe(rows: pd.DataFrame, db: Session, actor_id: 
     preview = validate_practical_import(rows, db, faculty_id)
     summary = {"imported": 0, "failed": 0, "skipped": 0}
     subject_by_code = {subject.code: subject.id for subject in db.scalars(select(Subject))}
+    
+    # Track next practical_number per subject_id in memory to prevent collision during batch inserts
+    next_num_tracker: dict[int, int] = {}
 
     for index, row in rows.fillna("").iterrows():
         record = preview[index]
@@ -878,9 +881,15 @@ def import_practicals_from_dataframe(rows: pd.DataFrame, db: Session, actor_id: 
                 submission_date = date.fromisoformat(str(submission_date_raw).strip())
             except ValueError:
                 submission_date = None
+
+        if subject_id not in next_num_tracker:
+            next_num_tracker[subject_id] = next_practical_number(db, subject_id)
+        current_pnum = next_num_tracker[subject_id]
+        next_num_tracker[subject_id] += 1
+
         practical = Practical(
             subject_id=subject_id,
-            practical_number=next_practical_number(db, subject_id),
+            practical_number=current_pnum,
             title=title,
             description=values.get("Description", ""),
             learning_outcome=values.get("Learning Outcome", ""),
@@ -892,7 +901,8 @@ def import_practicals_from_dataframe(rows: pd.DataFrame, db: Session, actor_id: 
             created_by=actor_id,
         )
         db.add(practical)
-        audit(db, actor_id, "BULK_IMPORT_PRACTICALS", "Practical", None, f"{subject_code}:{title}")
+        db.flush()
+        audit(db, actor_id, "BULK_IMPORT_PRACTICALS", "Practical", practical.id, f"{subject_code}:{title}")
         summary["imported"] += 1
     db.commit()
     return summary

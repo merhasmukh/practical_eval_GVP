@@ -230,10 +230,12 @@ def test_validate_bulk_user_import_marks_missing_and_duplicate_rows():
 
     rows = pd.DataFrame(
         [
-            {"Enrollment No.": "250160450001", "Student Name": "Alice", "Email": "250160450001.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
+            {"Enrollment No.": "250160450001", "Student Name": "Alice 12-digit", "Email": "250160450001.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
+            {"Enrollment No.": "210160450", "Student Name": "Dave 9-digit", "Email": "210160450.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
             {"Enrollment No.": "", "Student Name": "Bob", "Email": "250160450002.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
             {"Enrollment No.": "250160450001", "Student Name": "Alice 2", "Email": "250160450001.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
             {"Enrollment No.": "12345", "Student Name": "Short", "Email": "12345.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
+            {"Enrollment No.": "1234567890", "Student Name": "TenDigits", "Email": "1234567890.gvp@gujaratvidyapith.org", "Programme": "MCA", "Semester": 3},
             {"Enrollment No.": "250160450003", "Student Name": "Charlie", "Email": "charlie@gmail.com", "Programme": "MCA", "Semester": 3},
         ]
     )
@@ -241,13 +243,16 @@ def test_validate_bulk_user_import_marks_missing_and_duplicate_rows():
     preview = validate_bulk_user_import(rows, "student", db)
 
     assert preview[0]["ready"] is True
-    assert preview[1]["ready"] is False
-    assert "required" in preview[1]["reason"].lower()
-    assert preview[2]["duplicate"] is True
-    assert preview[3]["ready"] is False
-    assert "12 digits" in preview[3]["reason"]
+    assert preview[1]["ready"] is True
+    assert preview[2]["ready"] is False
+    assert "required" in preview[2]["reason"].lower()
+    assert preview[3]["duplicate"] is True
     assert preview[4]["ready"] is False
-    assert "gujaratvidyapith.org" in preview[4]["reason"]
+    assert "9 or 12 digits" in preview[4]["reason"]
+    assert preview[5]["ready"] is False
+    assert "9 or 12 digits" in preview[5]["reason"]
+    assert preview[6]["ready"] is False
+    assert "gujaratvidyapith.org" in preview[6]["reason"]
 
 
 def test_build_practical_import_template_returns_bytes():

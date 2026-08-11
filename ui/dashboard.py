@@ -102,14 +102,18 @@ def dashboard(db, user: User, active_role: str | None = None, *args, **kwargs) -
     effective_role = str(role_val)
     first_name = user.full_name.split()[0] if user.full_name else user.username
     st.title(f"Good day, {first_name}")
-    st.caption(f"Viewing as **{effective_role}** · Choose a dashboard view to switch between practical tracking and interactive analytics.")
 
-    dashboard_view = st.radio(
-        "Dashboard view",
-        ["Existing system", "Interactive analytics"],
-        horizontal=True,
-        index=0,
-    )
+    if effective_role == "Administrator":
+        st.caption(f"Viewing as **{effective_role}** · Choose a dashboard view to switch between practical tracking and interactive analytics.")
+        dashboard_view = st.radio(
+            "Dashboard view",
+            ["Existing system", "Interactive analytics"],
+            horizontal=True,
+            index=0,
+        )
+    else:
+        st.caption(f"Viewing as **{effective_role}** · Practical tracking and submission search.")
+        dashboard_view = "Existing system"
 
     if dashboard_view != "Interactive analytics":
         st.subheader("Search and filter practicals")

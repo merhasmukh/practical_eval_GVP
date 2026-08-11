@@ -114,6 +114,32 @@ def test_register_google_student_creates_account_and_profile():
     assert authenticated_user.id == user.id
 
 
+def test_register_google_student_9_digits():
+    from models.schema import Department, Program
+    from services.oauth_service import register_google_student
+    db = setup_db()
+    dept = Department(name="Computer Science", code="CS")
+    db.add(dept)
+    db.flush()
+    prog = Program(name="Post Graduate Diploma", code="PGDCA", total_semesters=2, department_id=dept.id)
+    db.add(prog)
+    db.commit()
+
+    google_info = {
+        "email": "210160450.gvp@gujaratvidyapith.org",
+        "name": "Nine Digit Student",
+    }
+    user, err = register_google_student(db, google_info, program_id=prog.id, semester=1, full_name="Nine Digit Student")
+    assert err is None
+    assert user is not None
+    assert user.username == "210160450"
+    assert user.email == "210160450.gvp@gujaratvidyapith.org"
+    assert user.student is not None
+    assert user.student.enrollment_no == "210160450"
+    assert user.student.program == "PGDCA"
+    assert user.student.semester == 1
+
+
 def test_authenticate_google_user_unregistered_faculty_fails():
     db = setup_db()
     google_info = {
